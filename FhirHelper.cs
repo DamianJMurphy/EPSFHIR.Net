@@ -87,7 +87,16 @@ namespace EPSFHIR
 
         public static bool MakeDate(string s, out DateTime d)
         {
-            return DateTime.TryParseExact(s, DATEPATTERN, null, System.Globalization.DateTimeStyles.None, out d);
+            try
+            {
+                return DateTime.TryParseExact(s, DATEPATTERN, null, System.Globalization.DateTimeStyles.None, out d);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message + ": " + s);
+                d = DateTime.UtcNow;
+                return true;
+            }
         }
     }
 }

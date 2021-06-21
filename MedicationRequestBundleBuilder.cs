@@ -53,7 +53,6 @@ namespace EPSFHIR
             SanityCheckOutput();
             EMUData emu = new EMUData(prescriptionsFile, itemsFile);
             emu.Load();
-
             foreach (string pid in emu.GetPrescriptionIDs())
             {
                 Bundle b = MakeBundle(emu.GetPrescriptionData(pid), emu.GetItems(pid));
@@ -154,14 +153,22 @@ namespace EPSFHIR
             MedicationRequest.DispenseRequestComponent dr = new MedicationRequest.DispenseRequestComponent();
             Extension e = FhirHelper.MakeExtension(null, "https://fhir.nhs.uk/R4/StructureDefinition/Extension-performerType",
                 FhirHelper.MakeCoding("https://fhir.nhs.uk/R4/CodeSystem/dispensing-site-preference", rx[EMUData.DISPENSINGSITEPREFERENCE], null));
-            SimpleQuantity q = new SimpleQuantity
+            SimpleQuantity q = null;
+            try
             {
-                Code = item[EMUData.QUANTITYCODE],
-                System = "http://snomed.info/sct",
-                Unit = item[EMUData.QUANTITYTEXT],
-                Value = Convert.ToInt32(item[EMUData.QUANTITYCOUNT])
-            };
-            dr.Quantity = q;
+                q = new SimpleQuantity
+                {
+                    Code = item[EMUData.QUANTITYCODE],
+                    System = "http://snomed.info/sct",
+                    Unit = item[EMUData.QUANTITYTEXT],
+                    Value = Convert.ToDecimal(item[EMUData.QUANTITYCOUNT])
+                };
+                dr.Quantity = q;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Exception: {ex} making SimpleQuantity: {value}", ex.Message, item[EMUData.QUANTITYCOUNT]);
+            }
             if (nom != null)
             {
                 dr.Performer = nom;

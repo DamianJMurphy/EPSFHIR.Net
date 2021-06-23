@@ -10,25 +10,30 @@ namespace EPSFHIR
         private readonly string prescriptionsFile = null;
         private readonly string itemsFile = null;
         private readonly string outputDirectory = null;
-        private readonly bool xml = false;
 
+        private static bool xml = false;
         private static string asid = null;
         private static string ods = null;
         private static string url = null;
+        private static string resdir = null;
 
         static void Main(string[] args)
         {
             
-            if (args.Length != 7)
+            if ((args.Length != 7) && (args.Length != 8)) 
             {
-                Console.WriteLine("Arguments: prescriptionsfile itemsfile outputdirectory format asid ods url");
+                Console.WriteLine("Arguments: prescriptionsfile itemsfile outputdirectory format asid ods url [resourcedirectory]");
             }
             else
             {
                 asid = args[4];
                 ods = args[5];
                 url = args[6];
-                try
+                if (args.Length == 8)
+                {
+                    resdir = args[7];
+                }
+                try 
                 {
                     MedicationRequestBundleBuilder builder = new MedicationRequestBundleBuilder(args[0], args[1], args[2], args[3]);
                     builder.Go();
@@ -58,26 +63,12 @@ namespace EPSFHIR
                 Bundle b = MakeBundle(emu.GetPrescriptionData(pid), emu.GetItems(pid));
                 if (b != null)
                 {
-                    if (xml)
-                    {
-                        FhirXmlSerializer xs = new FhirXmlSerializer();
-                        string pp = xs.SerializeToString(b);
-                        FhirHelper.Write(pid, pp, outputDirectory, xml);
-                    }
-                    else
-                    {
-                        FhirJsonSerializer js = new FhirJsonSerializer();
-                        string pp = js.SerializeToString(b);
-                        FhirHelper.Write(pid, pp, outputDirectory, xml);
-                    }
+                    FhirHelper.WriteResource(pid, b, outputDirectory, xml);
                 }
             }
         }
 
-
-
-
-        private Bundle MakeBundle(System.Collections.Generic.List<string> rx, System.Collections.Generic.List<System.Collections.Generic.List<string>> items)
+        private static Bundle MakeBundle(System.Collections.Generic.List<string> rx, System.Collections.Generic.List<System.Collections.Generic.List<string>> items)
         {
             Bundle b = new Bundle
             {
@@ -93,6 +84,13 @@ namespace EPSFHIR
             FhirHelper.AddEntryToBundle(b, author.Practitioner);
             FhirHelper.AddEntryToBundle(b, author.Organisation);
             FhirHelper.AddEntryToBundle(b, author.Role);
+            if (resdir != null)
+            {
+                FhirHelper.WriteResource(null, author.Practitioner, resdir, xml);
+                FhirHelper.WriteResource(null, author.Organisation, resdir, xml);
+                FhirHelper.WriteResource(null, author.Role, resdir, xml);
+                FhirHelper.WriteResource(null, p, resdir, xml);
+            }
             ResourceReference nominatedPharmacy = GetNominatedPharmacyReference(rx);
 
             foreach (System.Collections.Generic.List<string> item in items)
@@ -102,6 +100,7 @@ namespace EPSFHIR
                 {
                     FhirHelper.AddEntryToBundle(b, m);
                     header.Focus.Add(FhirHelper.MakeInternalReference(m));
+                    FhirHelper.WriteResource(null, m, resdir, xml);
                 }
             }
 
@@ -110,7 +109,7 @@ namespace EPSFHIR
             return b;
         }
 
-        private MedicationRequest MakeMedicationRequest(Patient p, System.Collections.Generic.List<string> rx,
+        private static MedicationRequest MakeMedicationRequest(Patient p, System.Collections.Generic.List<string> rx,
             System.Collections.Generic.List<string> item, ResourceReference nom, ParticipantMaker a)
         {
             MedicationRequest m = new MedicationRequest
@@ -147,27 +146,27 @@ namespace EPSFHIR
             return m;
         }
 
-        private MedicationRequest.DispenseRequestComponent MakeDispenseRequest(ResourceReference nom, System.Collections.Generic.List<string> rx, 
+        private static MedicationRequest.DispenseRequestComponent MakeDispenseRequest(ResourceReference nom, System.Collections.Generic.List<string> rx, 
             System.Collections.Generic.List<string> item)
         {
             MedicationRequest.DispenseRequestComponent dr = new MedicationRequest.DispenseRequestComponent();
             Extension e = FhirHelper.MakeExtension(null, "https://fhir.nhs.uk/R4/StructureDefinition/Extension-performerType",
                 FhirHelper.MakeCoding("https://fhir.nhs.uk/R4/CodeSystem/dispensing-site-preference", rx[EMUData.DISPENSINGSITEPREFERENCE], null));
-            SimpleQuantity q = null;
             try
             {
-                q = new SimpleQuantity
+                dr.Quantity = new SimpleQuantity
                 {
                     Code = item[EMUData.QUANTITYCODE],
                     System = "http://snomed.info/sct",
                     Unit = item[EMUData.QUANTITYTEXT],
                     Value = Convert.ToDecimal(item[EMUData.QUANTITYCOUNT])
                 };
-                dr.Quantity = q;
             }
             catch (Exception ex)
             {
+#pragma warning disable CA2241 // Provide correct arguments to formatting methods
                 Console.WriteLine("Exception: {ex} making SimpleQuantity: {value}", ex.Message, item[EMUData.QUANTITYCOUNT]);
+#pragma warning restore CA2241 // Provide correct arguments to formatting methods
             }
             if (nom != null)
             {
@@ -178,7 +177,7 @@ namespace EPSFHIR
         }
             
 
-        private CodeableConcept MakeCourseOfTherapyType(System.Collections.Generic.List<string> rx)
+        private static CodeableConcept MakeCourseOfTherapyType(System.Collections.Generic.List<string> rx)
         {
             CodeableConcept cc = new CodeableConcept();
             Coding c = new Coding
@@ -215,14 +214,14 @@ namespace EPSFHIR
             return cc;
         }
 
-        private CodeableConcept DoMedication(System.Collections.Generic.List<string> item)
+        private static CodeableConcept DoMedication(System.Collections.Generic.List<string> item)
         {
             CodeableConcept cc = new CodeableConcept();
             cc.Coding.Add(FhirHelper.MakeCoding("http://snomed.info/sct", item[EMUData.SUBSTANCECODE], item[EMUData.DISPLAYNAME]));
             return cc;
         }
 
-        private Identifier MakeGroupIdentifier(System.Collections.Generic.List<string> rx)
+        private static Identifier MakeGroupIdentifier(System.Collections.Generic.List<string> rx)
         {
             Identifier sfid = FhirHelper.MakeIdentifier("https://fhir.nhs.uk/Id/prescription-short-form",
                     rx[EMUData.PRESCRIPTIONID]);
@@ -232,7 +231,7 @@ namespace EPSFHIR
             return sfid;
         }
 
-        private void DoPrescriptionType(MedicationRequest m,  System.Collections.Generic.List<string> rx)
+        private static void DoPrescriptionType(MedicationRequest m,  System.Collections.Generic.List<string> rx)
         {
             Coding ptc = FhirHelper.MakeCoding("https://fhir.nhs.uk/R4/CodeSystem/prescription-type", rx[EMUData.PRESCRIPTIONTYPE], null);
             if (rx[EMUData.PRESCRIPTIONTYPE].Equals("0001"))
@@ -243,14 +242,14 @@ namespace EPSFHIR
             m.Extension.Add(e);
         }
 
-        private void DoResponsiblePractitioner(MedicationRequest m, ParticipantMaker a)
+        private static void DoResponsiblePractitioner(MedicationRequest m, ParticipantMaker a)
         {
             Extension e = FhirHelper.MakeExtension(null, "https://fhir.nhs.uk/R4/StructureDefinition/Extension-DM-ResponsiblePractitioner",
                 FhirHelper.MakeInternalReference(a.Role));
             m.Extension.Add(e);
         }
 
-        private ResourceReference GetNominatedPharmacyReference(System.Collections.Generic.List<string> rx)
+        private static ResourceReference GetNominatedPharmacyReference(System.Collections.Generic.List<string> rx)
         {
             ResourceReference r = null;
             string n = rx[EMUData.NOMINATEDPHARMACYID].Trim();
@@ -264,7 +263,7 @@ namespace EPSFHIR
             return r;
         }
 
-        private void AddPatientName(Patient p, System.Collections.Generic.List<string> rx)
+        private static void AddPatientName(Patient p, System.Collections.Generic.List<string> rx)
         {
             HumanName n = new HumanName
             {
@@ -283,7 +282,7 @@ namespace EPSFHIR
             p.Name.Add(n);
         }
 
-        private void AddNhsNumber(Patient p, System.Collections.Generic.List<string> rx)
+        private static void AddNhsNumber(Patient p, System.Collections.Generic.List<string> rx)
         {
             Identifier n = FhirHelper.MakeIdentifier("https://fhir.nhs.uk/Id/nhs-number", rx[EMUData.PATIENTID]);
             Extension evs = new Extension
@@ -298,7 +297,7 @@ namespace EPSFHIR
             p.Identifier.Add(n);
         }
 
-        private Patient MakePatient(System.Collections.Generic.List<string> rx)
+        private static Patient MakePatient(System.Collections.Generic.List<string> rx)
         {
             Patient p = new Patient
             {
@@ -313,7 +312,7 @@ namespace EPSFHIR
             return p;
         }
 
-        private void AddIfPresent(Address a, System.Collections.Generic.List<string> rx, int offset)
+        private static void AddIfPresent(Address a, System.Collections.Generic.List<string> rx, int offset)
         {
                 String s = rx[offset].Trim();
                 if (s.Length > 0)
@@ -323,7 +322,7 @@ namespace EPSFHIR
         }
 
 
-        private void AddPatientAddress(Patient p, System.Collections.Generic.List<string> rx)
+        private static void AddPatientAddress(Patient p, System.Collections.Generic.List<string> rx)
         {
             Address a = new Address
             {
@@ -338,7 +337,7 @@ namespace EPSFHIR
             p.Address.Add(a);
         }
 
-        private void AddPatientGp(Patient p, System.Collections.Generic.List<string> rx)
+        private static void AddPatientGp(Patient p, System.Collections.Generic.List<string> rx)
         {
             ResourceReference r = new ResourceReference
             {
@@ -347,7 +346,7 @@ namespace EPSFHIR
             p.ManagingOrganization = r;
         }
 
-        private AdministrativeGender GetGender(string s)
+        private static  AdministrativeGender GetGender(string s)
         {
             try
             {
@@ -369,7 +368,7 @@ namespace EPSFHIR
             return AdministrativeGender.Other;
         }
 
-        private MessageHeader MakeMessageHeader(ParticipantMaker a)
+        private static MessageHeader MakeMessageHeader(ParticipantMaker a)
         {
             MessageHeader header = new MessageHeader
             {
@@ -382,7 +381,7 @@ namespace EPSFHIR
             return header;
         }
 
-        private MessageHeader.MessageSourceComponent MakeSource()
+        private static MessageHeader.MessageSourceComponent MakeSource()
         {
             MessageHeader.MessageSourceComponent s = new MessageHeader.MessageSourceComponent();
             Extension a = FhirHelper.MakeExtension("https://fhir.nhs.uk/R4/StructureDefinition/Extension-spineEndpoint",

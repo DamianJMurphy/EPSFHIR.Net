@@ -2,7 +2,7 @@
   "profiles": {
     "EPSFHIR.Net": {
       "commandName": "Project",
-      "commandLineArgs": "Export_JoinedTable_R2_20210621102659-1-HCOMP13-INTEGRATION-32483.txt Export_LineItem_R2_20210621102659-1-HCOMP13-INTEGRATION-32483.txt Output json 123456789012 odscode https://test",
+      "commandLineArgs": "Export_JoinedTable_R2_20210621102659-1-HCOMP13-INTEGRATION-32483.txt Export_LineItem_R2_20210621102659-1-HCOMP13-INTEGRATION-32483.txt Output json 123456789012 odscode https://test Output\\Resources",
       "workingDirectory": "C:\\Users\\Damian Murphy\\Documents\\Tests\\EPS-FHIR"
     }
   }

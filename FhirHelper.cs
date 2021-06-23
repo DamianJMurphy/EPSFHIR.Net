@@ -2,6 +2,7 @@
 using System.IO;
 using System.Text;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 
 namespace EPSFHIR
 {
@@ -11,11 +12,33 @@ namespace EPSFHIR
 
         public static string MakeId() { return Guid.NewGuid().ToString().ToLower(); }
 
-        public static void Write(string pid, string b, string outputDirectory, bool xml)
+        public static void WriteResource(string pid, Resource r, string outputDirectory, bool xml)
+        {
+            string rid = pid ?? r.Id;
+            string rname = r.ResourceType.ToString();
+            if (xml)
+            {
+                FhirXmlSerializer xs = new FhirXmlSerializer();
+                string sr = xs.SerializeToString(r);
+                FhirHelper.Write(rid, rname, sr, outputDirectory, xml);
+            }
+            else
+            {
+                FhirJsonSerializer js = new FhirJsonSerializer();
+                string sr = js.SerializeToString(r);
+                FhirHelper.Write(rid, rname, sr, outputDirectory, xml);
+            }
+        }
+
+        public static void Write(string pid, string rname, string b, string outputDirectory, bool xml)
         {
             StringBuilder sb = new StringBuilder(outputDirectory);
             if (!outputDirectory.EndsWith("\\"))
-                sb.Append("\\");
+            {
+                sb.Append('\\');
+            }
+            sb.Append(rname);
+            sb.Append('_');
             sb.Append(pid);
             if (xml)
             {

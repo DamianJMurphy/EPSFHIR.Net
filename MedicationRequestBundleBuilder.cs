@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -16,6 +17,16 @@ namespace EPSFHIR
         private static string ods = null;
         private static string url = null;
         private static string resdir = null;
+
+        private static List<string> patients = new List<string>();
+        private static List<string> practitioners = new List<string>();
+        private static List<string> roles = new List<string>();
+        private static List<string> organisations = new List<string>();
+
+        private static string currentNhsNumber = null;
+        private static string currentPractitioner = null;
+        private static string currentRole = null;
+        private static string currentOrganisation = null;
 
         static void Main(string[] args)
         {
@@ -77,6 +88,7 @@ namespace EPSFHIR
             };
             ParticipantMaker author = new ParticipantMaker();
             author.Make(EMUData.AUTHORROLEPROFILE, rx);
+            GetParticipantIdentifiers(author);
             MessageHeader header = MakeMessageHeader(author);
             FhirHelper.AddEntryToBundle(b, header);
             Patient p = MakePatient(rx);
@@ -86,10 +98,26 @@ namespace EPSFHIR
             FhirHelper.AddEntryToBundle(b, author.Role);
             if (resdir != null)
             {
-                FhirHelper.WriteResource(null, author.Practitioner, resdir, xml);
-                FhirHelper.WriteResource(null, author.Organisation, resdir, xml);
-                FhirHelper.WriteResource(null, author.Role, resdir, xml);
-                FhirHelper.WriteResource(null, p, resdir, xml);
+                if (!practitioners.Contains(currentPractitioner))
+                {
+                    FhirHelper.WriteResource(null, author.Practitioner, resdir, xml);
+                    practitioners.Add(currentPractitioner);
+                }
+                if (!organisations.Contains(currentOrganisation))
+                {
+                    FhirHelper.WriteResource(null, author.Organisation, resdir, xml);
+                    organisations.Add(currentOrganisation);
+                }
+                if (!roles.Contains(currentRole))
+                {
+                    FhirHelper.WriteResource(null, author.Role, resdir, xml);
+                    roles.Add(currentRole);
+                }
+                if (!patients.Contains(currentNhsNumber))
+                {
+                    FhirHelper.WriteResource(null, p, resdir, xml);
+                    patients.Add(currentNhsNumber);
+                }
             }
             ResourceReference nominatedPharmacy = GetNominatedPharmacyReference(rx);
 
@@ -107,6 +135,13 @@ namespace EPSFHIR
             header.Focus.Add(FhirHelper.MakeInternalReference(p));
             header.Focus.Add(FhirHelper.MakeInternalReference(author.Role));
             return b;
+        }
+
+        private static void GetParticipantIdentifiers(ParticipantMaker p)
+        {
+            currentOrganisation = p.Practitioner.Identifier[0].Value;
+            currentRole = p.Role.Identifier[0].Value;
+            currentPractitioner = p.Practitioner.Identifier[0].Value;
         }
 
         private static MedicationRequest MakeMedicationRequest(Patient p, System.Collections.Generic.List<string> rx,
@@ -284,6 +319,7 @@ namespace EPSFHIR
 
         private static void AddNhsNumber(Patient p, System.Collections.Generic.List<string> rx)
         {
+            currentNhsNumber = rx[EMUData.PATIENTID];
             Identifier n = FhirHelper.MakeIdentifier("https://fhir.nhs.uk/Id/nhs-number", rx[EMUData.PATIENTID]);
             Extension evs = new Extension
             {

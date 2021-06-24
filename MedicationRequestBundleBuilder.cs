@@ -18,10 +18,10 @@ namespace EPSFHIR
         private static string url = null;
         private static string resdir = null;
 
-        private static List<string> patients = new List<string>();
-        private static List<string> practitioners = new List<string>();
-        private static List<string> roles = new List<string>();
-        private static List<string> organisations = new List<string>();
+        private static readonly Dictionary<string,string> patients = new Dictionary<string, string>();
+        private static readonly Dictionary<string, string> practitioners = new Dictionary<string, string>();
+        private static readonly Dictionary<string, string> roles = new Dictionary<string, string>();
+        private static readonly Dictionary<string, string> organisations = new Dictionary<string, string>();
 
         private static string currentNhsNumber = null;
         private static string currentPractitioner = null;
@@ -89,36 +89,52 @@ namespace EPSFHIR
             ParticipantMaker author = new ParticipantMaker();
             author.Make(EMUData.AUTHORROLEPROFILE, rx);
             GetParticipantIdentifiers(author);
+            Patient p = MakePatient(rx);
+            if (resdir != null)
+            {
+                if (!practitioners.ContainsKey(currentPractitioner))
+                {
+                    FhirHelper.WriteResource(null, author.Practitioner, resdir, xml);
+                    practitioners.Add(currentPractitioner, author.Practitioner.Id);
+                }
+                else
+                {
+                    author.Practitioner.Id = practitioners[currentPractitioner];
+                }
+                if (!organisations.ContainsKey(currentOrganisation))
+                {
+                    FhirHelper.WriteResource(null, author.Organisation, resdir, xml);
+                    organisations.Add(currentOrganisation, author.Organisation.Id);
+                }
+                else
+                {
+                    author.Organisation.Id = organisations[currentOrganisation];
+                }
+                if (!roles.ContainsKey(currentRole))
+                {
+                    FhirHelper.WriteResource(null, author.Role, resdir, xml);
+                    roles.Add(currentRole, author.Role.Id);
+                }
+                else
+                {
+                    author.Role.Id = roles[currentRole];
+                }
+                if (!patients.ContainsKey(currentNhsNumber))
+                {
+                    FhirHelper.WriteResource(null, p, resdir, xml);
+                    patients.Add(currentNhsNumber, p.Id);
+                }
+                else
+                {
+                    p.Id = patients[currentNhsNumber];
+                }
+            }
             MessageHeader header = MakeMessageHeader(author);
             FhirHelper.AddEntryToBundle(b, header);
-            Patient p = MakePatient(rx);
             FhirHelper.AddEntryToBundle(b, p);
             FhirHelper.AddEntryToBundle(b, author.Practitioner);
             FhirHelper.AddEntryToBundle(b, author.Organisation);
             FhirHelper.AddEntryToBundle(b, author.Role);
-            if (resdir != null)
-            {
-                if (!practitioners.Contains(currentPractitioner))
-                {
-                    FhirHelper.WriteResource(null, author.Practitioner, resdir, xml);
-                    practitioners.Add(currentPractitioner);
-                }
-                if (!organisations.Contains(currentOrganisation))
-                {
-                    FhirHelper.WriteResource(null, author.Organisation, resdir, xml);
-                    organisations.Add(currentOrganisation);
-                }
-                if (!roles.Contains(currentRole))
-                {
-                    FhirHelper.WriteResource(null, author.Role, resdir, xml);
-                    roles.Add(currentRole);
-                }
-                if (!patients.Contains(currentNhsNumber))
-                {
-                    FhirHelper.WriteResource(null, p, resdir, xml);
-                    patients.Add(currentNhsNumber);
-                }
-            }
             ResourceReference nominatedPharmacy = GetNominatedPharmacyReference(rx);
 
             foreach (System.Collections.Generic.List<string> item in items)

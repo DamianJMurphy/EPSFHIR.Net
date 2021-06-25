@@ -351,10 +351,15 @@ namespace EPSFHIR
 
         private static Patient MakePatient(System.Collections.Generic.List<string> rx)
         {
+            DateTime d = new DateTime(); 
+            if (!FhirHelper.MakeDate(rx[EMUData.PATIENTBIRTHTIME], out d))
+            {
+                Console.WriteLine("Failed to parse birth date: " + rx[EMUData.PATIENTBIRTHTIME]);
+            }
             Patient p = new Patient
             {
                 Id = FhirHelper.MakeId(),
-                BirthDate = rx[EMUData.PATIENTBIRTHTIME],
+                BirthDate = FhirHelper.FormatDate(d),
                 Gender = GetGender(rx[EMUData.PATIENTGENDER])
             };
             AddNhsNumber(p, rx);

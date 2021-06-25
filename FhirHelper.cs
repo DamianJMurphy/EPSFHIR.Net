@@ -108,6 +108,11 @@ namespace EPSFHIR
             b.AddResourceEntry(r, "urn:uuid:" + r.Id);
         }
 
+        public static string FormatDate(DateTime d)
+        {
+            return d.ToString("yyyy-MM-dd");
+        }
+
         public static bool MakeDate(string s, out DateTime d)
         {
             try
